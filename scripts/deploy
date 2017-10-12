@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+#
+# Darlcha's deployment script
+#
+# Assumes that the default AWS CLI profile is the deploying IAM user
+#
+
+# Fail early and often (See http://kvz.io/blog/2013/11/21/bash-best-practices)
+set -euo pipefail
+
+
+DEPLOYMENT_BUCKET=099089557500-sam-deployment-bucket
+SAM_PACKAGE_OUTPUT_FILEPATH=build/sam_package_output.yml
+
+# Make sure the script is run on the project root directory
+cd ../Darlcha
+
+rm -rf build # Clean itself
+mkdir -p build
+
+aws cloudformation package \
+  --template-file configuration/cloud_formation/template.yml \
+  --output-template-file ${SAM_PACKAGE_OUTPUT_FILEPATH} \
+  --s3-bucket ${DEPLOYMENT_BUCKET}
+
+aws cloudformation deploy \
+  --template-file ${SAM_PACKAGE_OUTPUT_FILEPATH} \
+  --stack-name darlcha-us-east-1-prod \
+  --capabilities CAPABILITY_IAM \
+  || true # No-ops exit as errors, so just suppress all errors
+
+# TODO: Check if the deployment has failed and fail
+
+aws s3 cp app/index.html s3://darlcha.com/ --content-type text/html
+aws s3 cp assets s3://darlcha.com/ --recursive
+
+echo -e "\033[32m DEPLOY SUCCESSFUL"

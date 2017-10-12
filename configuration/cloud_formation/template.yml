@@ -1,0 +1,85 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Single-page javascript website of Darlcha
+Resources:
+
+  RootDomainRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Name: darlcha.com.
+      HostedZoneId: ZZI5GJB14IIS7
+      Type: A
+      AliasTarget:
+        DNSName: s3-website-us-east-1.amazonaws.com
+        # Hosted zone of S3. See http://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region
+        HostedZoneId: Z3AQBSTGFYJSTF
+
+  SubdomainWwwRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Name: www.darlcha.com.
+      HostedZoneId: ZZI5GJB14IIS7
+      Type: A
+      AliasTarget:
+        DNSName: s3-website-us-east-1.amazonaws.com
+        # Hosted zone of S3. See http://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region
+        HostedZoneId: Z3AQBSTGFYJSTF
+
+  RootDomainBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: darlcha.com
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        IndexDocument: index.html
+    # S3 buckets must be retaind on resource deletion, otherwise deployments
+    # to delete the resource will fail, complaining of non-empty bucket
+    DeletionPolicy: Retain
+
+  SubdomainWwwBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: www.darlcha.com
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        RedirectAllRequestsTo:
+          # Not specifying Protocol defaults to redirecting with original protocol
+          HostName: darlcha.com
+    # S3 buckets must be retaind on resource deletion, otherwise deployments
+    # to delete the resource will fail, complaining of non-empty bucket
+    DeletionPolicy: Retain
+
+  RootDomainBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: RootDomainBucket
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:GetObject
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ''
+                - - Fn::GetAtt: RootDomainBucket.Arn
+                  - '/*'
+            Principal: '*'
+
+  SubdomainWwwBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: SubdomainWwwBucket
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:GetObject
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ''
+                - - Fn::GetAtt: SubdomainWwwBucket.Arn
+                  - '/*'
+            Principal: '*'
